@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import useStore from '../store/useStore';
-import { drawGrid, drawElement, screenToCanvas, canvasToScreen } from '../utils/canvas';
+import { drawGrid, drawElement, screenToCanvas } from '../utils/canvas';
 import { snapPointToGrid, simplifyStroke } from '../utils/geometry';
 import type { Point, Element, Shape, Stroke, Arrow, TextElement } from '../types';
 import EraserCursor from './EraserCursor';
@@ -836,11 +836,7 @@ export default function Canvas() {
         });
     };
 
-    const getCursor = () => {
-        if (activeTool === 'eraser') return 'none';
-        if (activeTool === 'select') return 'default';
-        return 'crosshair';
-    };
+
 
     // Memoize cursor to prevent flicker and expensive calculation on every render
     const cursorStyle = useMemo(() => {
