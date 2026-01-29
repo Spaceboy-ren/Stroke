@@ -1,10 +1,6 @@
 # Stroke
 
-Stroke is a simple, intuitive whiteboard app for sketching ideas, doodling, and explaining concepts visually. It is designed to stay out of your way so you can focus on thinking and creating.
-
-## Overview
-
-Sometimes typing is not enough. You just need a canvas to draw, connect ideas, and make sense of things. Stroke is a web-based whiteboard that lets you draw, add shapes, write text, and organize thoughts without unnecessary complexity.
+Stroke is a simple whiteboard app for sketching ideas, doodling, and explaining concepts visually
 
 ## Features
 
@@ -29,8 +25,28 @@ Real-time collaboration is the main feature planned for the future. The goal is 
 
 To run the project locally:
 
-```bash
-git clone https://github.com/Spaceboy-ren/Stroke.git
-cd stroke
-npm install
-npm run dev
+    git clone https://github.com/Spaceboy-ren/Stroke.git
+    cd stroke
+    npm install
+    npm run dev
+
+## Tech Stack
+
+- React with TypeScript  
+- Vite  
+- Zustand for state management  
+- Tailwind CSS for styling  
+- Framer Motion for animations  
+- Lucide React for icons  
+
+## Why the Name Stroke
+
+Every drawing begins with a single stroke. The name reflects simplicity and focus.
+
+## Contributing
+
+This is currently a solo project. If you find bugs or have suggestions, feel free to open an issue.
+
+## License
+
+MIT License. You are free to use and modify this project.
