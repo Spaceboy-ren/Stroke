@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { Pipette } from 'lucide-react';
+import { useRef } from 'react';
 import useStore from '../../store/useStore';
 
 const colors = [
@@ -16,6 +18,7 @@ const colors = [
 
 export default function ColorPalette() {
     const { currentColor, setCurrentColor, theme, selectedIds, updateElement } = useStore();
+    const colorInputRef = useRef<HTMLInputElement>(null);
 
     const handleColorChange = (color: string) => {
         setCurrentColor(color);
@@ -27,6 +30,8 @@ export default function ColorPalette() {
             });
         }
     };
+
+    const isPresetColor = colors.some(c => c.value.toLowerCase() === currentColor.toLowerCase());
 
     return (
         <motion.div
@@ -45,7 +50,7 @@ export default function ColorPalette() {
                         onClick={() => handleColorChange(color.value)}
                         className={`
               w-8 h-8 rounded-lg border-2 transition-all duration-150
-              ${currentColor === color.value ? 'border-primary scale-110 shadow-md' : 'border-border'}
+              ${currentColor.toLowerCase() === color.value.toLowerCase() ? 'border-primary scale-110 shadow-md' : 'border-border'}
             `}
                         style={{
                             backgroundColor: color.value,
@@ -57,19 +62,37 @@ export default function ColorPalette() {
                 ))}
             </div>
 
-            <div className="w-full h-px bg-border my-1" />
-
-            <div className="text-xs text-muted-foreground px-1">
-                <div className="flex items-center justify-between mb-1">
-                    <span>Custom</span>
-                </div>
-                <input
-                    type="color"
-                    value={currentColor}
-                    onChange={(e) => handleColorChange(e.target.value)}
-                    className="w-full h-8 rounded-lg border border-border cursor-pointer bg-transparent"
+            {/* Custom color picker — styled as a swatch button with an eyedropper icon */}
+            <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => colorInputRef.current?.click()}
+                className={`
+                    relative w-full h-8 rounded-lg border-2 transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer overflow-hidden
+                    ${!isPresetColor ? 'border-primary shadow-md' : 'border-border hover:border-muted-foreground/40'}
+                `}
+                title="Pick custom color"
+            >
+                {/* Color fill background */}
+                <div
+                    className="absolute inset-0 opacity-20"
+                    style={{ backgroundColor: currentColor }}
                 />
-            </div>
+                <Pipette size={13} className="relative text-muted-foreground" />
+                <span className="relative text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                    {currentColor}
+                </span>
+            </motion.button>
+
+            {/* Hidden native color input */}
+            <input
+                ref={colorInputRef}
+                type="color"
+                value={currentColor}
+                onChange={(e) => handleColorChange(e.target.value)}
+                className="sr-only"
+                tabIndex={-1}
+            />
         </motion.div>
     );
 }

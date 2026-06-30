@@ -23,16 +23,21 @@ export function drawGrid(
     height: number
 ) {
     const zoom = viewport.zoom;
-    const scaledGridSize = gridSize * zoom;
 
-    // Calculate opacity based on zoom level
+    // Adaptive grid: at low zoom, double the spacing to keep dot count manageable
+    let effectiveGridSize = gridSize;
+    while (effectiveGridSize * zoom < 20) {
+        effectiveGridSize *= 2;
+    }
+    const scaledGridSize = effectiveGridSize * zoom;
+
+    // Fade dots at extreme zoom levels
     let opacity = 1;
     if (zoom < 0.5) {
         opacity = zoom / 0.5;
     } else if (zoom > 2) {
         opacity = Math.max(0, 3 - zoom);
     }
-
     if (opacity <= 0) return;
 
     ctx.save();

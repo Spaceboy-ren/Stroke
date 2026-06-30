@@ -7,6 +7,17 @@ export interface Point {
     y: number;
 }
 
+export interface PreviewData {
+    tool: string;
+    strokeColor: string;
+    fillColor: string;
+    strokeWidth: number;
+    startPoint: Point | null;
+    endPoint: Point | null;
+    points: Point[] | null;
+    userColor: string;
+}
+
 export interface BaseElement {
     id: string;
     type: 'shape' | 'stroke' | 'text' | 'arrow';
@@ -86,6 +97,9 @@ export interface WhiteboardState {
     currentFillColor: string;
     currentStrokeWidth: number;
     currentFontFamily: string;
+
+    // Collaboration previews (not synced to server as drawing state)
+    remotePreviews: Map<string, PreviewData>;
 
     // History
     history: HistoryState;

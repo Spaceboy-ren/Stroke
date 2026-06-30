@@ -29,6 +29,8 @@ const useStore = create<WhiteboardState>((set, get) => ({
         future: [],
     },
 
+    remotePreviews: new Map(),
+
     // Element actions
     addElement: (element: Element) => {
         set((state) => {
@@ -167,33 +169,6 @@ const useStore = create<WhiteboardState>((set, get) => ({
             const newTheme = state.theme === 'light' ? 'dark' : 'light';
             const newColor = newTheme === 'dark' ? '#ffffff' : '#000000';
 
-            // Invert colors of all existing elements
-            const invertColor = (color: string): string => {
-                if (color === '#000000' || color === '#1a1a1a') return '#ffffff';
-                if (color === '#ffffff') return '#000000';
-                // For other colors, try to invert them
-                if (color.startsWith('#')) {
-                    try {
-                        const r = parseInt(color.slice(1, 3), 16);
-                        const g = parseInt(color.slice(3, 5), 16);
-                        const b = parseInt(color.slice(5, 7), 16);
-                        const invR = (255 - r).toString(16).padStart(2, '0');
-                        const invG = (255 - g).toString(16).padStart(2, '0');
-                        const invB = (255 - b).toString(16).padStart(2, '0');
-                        return `#${invR}${invG}${invB}`;
-                    } catch {
-                        return color;
-                    }
-                }
-                return color;
-            };
-
-            const newElements = state.elements.map(el => ({
-                ...el,
-                strokeColor: el.strokeColor === 'transparent' ? 'transparent' : invertColor(el.strokeColor),
-                fillColor: el.fillColor === 'transparent' ? 'transparent' : invertColor(el.fillColor),
-            }));
-
             if (typeof document !== 'undefined') {
                 if (newTheme === 'dark') {
                     document.documentElement.classList.add('dark');
@@ -202,10 +177,11 @@ const useStore = create<WhiteboardState>((set, get) => ({
                 }
                 localStorage.setItem('theme', newTheme);
             }
+            // Only update the UI theme + default pen color.
+            // Do NOT mutate elements — that would broadcast inverted colors to all collaborators.
             return {
                 theme: newTheme,
                 currentColor: newColor,
-                elements: newElements,
             };
         });
     },

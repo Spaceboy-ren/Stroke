@@ -2,13 +2,17 @@ import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import useStore from '../store/useStore';
 import { drawGrid, drawElement, screenToCanvas } from '../utils/canvas';
 import { snapPointToGrid, simplifyStroke } from '../utils/geometry';
-import type { Point, Element, Shape, Stroke, Arrow, TextElement } from '../types';
+import type { Point, Element, Shape, Stroke, Arrow, TextElement, PreviewData } from '../types';
 import EraserCursor from './EraserCursor';
 import ContextMenu from './ContextMenu';
 
 type ResizeHandle = 'TL' | 'TR' | 'BR' | 'BL' | null;
 
-export default function Canvas() {
+interface CanvasProps {
+    sendPreview?: (data: PreviewData | null) => void;
+}
+
+export default function Canvas({ sendPreview }: CanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const textInputRef = useRef<HTMLTextAreaElement>(null);
     const lastEraserPos = useRef<Point | null>(null); // Track last eraser position for interpolation
@@ -19,6 +23,7 @@ export default function Canvas() {
     const [isPanning, setIsPanning] = useState(false);
     const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null);
     const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
+    const [clientMousePos, setClientMousePos] = useState<Point>({ x: 0, y: 0 });
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId?: string } | null>(null);
     const [marqueeStart, setMarqueeStart] = useState<Point | null>(null);
     const [marqueeCurrent, setMarqueeCurrent] = useState<Point | null>(null);
@@ -53,6 +58,7 @@ export default function Canvas() {
         setViewport,
         deleteElements,
         setActiveTool,
+        remotePreviews = new Map(),
     } = store;
 
     // Focus text input when editing starts
@@ -108,30 +114,79 @@ export default function Canvas() {
             ctx.restore();
         }
 
-        // Draw eraser path trace (stored in screen coordinates)
+        // Draw eraser path trace with fading gradient tail
         if (eraserPath.length > 1) {
             ctx.save();
-            // Don't apply viewport transform - eraserPath is in screen coordinates
-
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
-            ctx.lineWidth = 24; // Eraser size in screen pixels
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
-            ctx.beginPath();
-            ctx.moveTo(eraserPath[0].x, eraserPath[0].y);
-            for (let i = 1; i < eraserPath.length; i++) {
-                ctx.lineTo(eraserPath[i].x, eraserPath[i].y);
+            // Draw segments with fading opacity (oldest = transparent, newest = visible)
+            const maxTrailLength = 40;
+            const startIdx = Math.max(0, eraserPath.length - maxTrailLength);
+            const trailPoints = eraserPath.slice(startIdx);
+
+            for (let i = 1; i < trailPoints.length; i++) {
+                const progress = i / trailPoints.length;
+                const alpha = progress * 0.35;
+                const width = 4 + progress * 16;
+
+                ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.moveTo(trailPoints[i - 1].x, trailPoints[i - 1].y);
+                ctx.lineTo(trailPoints[i].x, trailPoints[i].y);
+                ctx.stroke();
             }
-            ctx.stroke();
             ctx.restore();
         }
+
+        // Draw remote previews (peers drawing in real-time)
+        remotePreviews.forEach((preview) => {
+            if (!preview.startPoint) return;
+            ctx.save();
+            ctx.translate(viewport.x, viewport.y);
+            ctx.scale(viewport.zoom, viewport.zoom);
+            ctx.strokeStyle = preview.userColor;
+            ctx.fillStyle = preview.fillColor !== 'transparent' ? preview.fillColor : 'transparent';
+            ctx.lineWidth = preview.strokeWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.55;
+            ctx.setLineDash([5, 4]); // dashed = in-progress indicator
+
+            if (preview.tool === 'draw' && preview.points && preview.points.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(preview.points[0].x, preview.points[0].y);
+                preview.points.forEach((p: { x: number; y: number }) => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+            } else if (preview.endPoint) {
+                const sp = preview.startPoint;
+                const ep = preview.endPoint;
+                const w = Math.abs(ep.x - sp.x);
+                const h = Math.abs(ep.y - sp.y);
+                const x = Math.min(sp.x, ep.x);
+                const y = Math.min(sp.y, ep.y);
+                ctx.beginPath();
+                switch (preview.tool) {
+                    case 'rectangle': ctx.rect(x, y, w, h); break;
+                    case 'circle': ctx.arc(x + w/2, y + h/2, Math.min(w,h)/2, 0, Math.PI*2); break;
+                    case 'ellipse': ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI*2); break;
+                    case 'diamond':
+                        ctx.moveTo(x+w/2, y); ctx.lineTo(x+w, y+h/2);
+                        ctx.lineTo(x+w/2, y+h); ctx.lineTo(x, y+h/2); ctx.closePath(); break;
+                    case 'arrow': ctx.moveTo(sp.x, sp.y); ctx.lineTo(ep.x, ep.y); break;
+                }
+                if (preview.fillColor !== 'transparent') ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        });
 
         // Draw preview while drawing
         if (isDrawing && activeTool !== 'select' && activeTool !== 'eraser') {
             drawPreview(ctx);
         }
-    }, [elements, selectedIds, viewport, gridVisible, gridSize, isDrawing, activeTool, currentPoints, startPoint, marqueeStart, marqueeCurrent, editingTextId, eraserPath]);
+    }, [elements, selectedIds, viewport, gridVisible, gridSize, isDrawing, activeTool, currentPoints, startPoint, marqueeStart, marqueeCurrent, editingTextId, eraserPath, remotePreviews]);
 
     // Draw preview for current tool - reusing logic
     const drawPreview = (ctx: CanvasRenderingContext2D) => {
@@ -378,6 +433,7 @@ export default function Canvas() {
         const rect = canvas.getBoundingClientRect();
         const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         setMousePos(screenPoint);
+        setClientMousePos({ x: e.clientX, y: e.clientY });
 
         if (isPanning && lastPanPoint) {
             const dx = screenPoint.x - lastPanPoint.x;
@@ -510,6 +566,17 @@ export default function Canvas() {
             } else {
                 setCurrentPoints([...currentPoints.slice(0, 1), snappedPoint]);
             }
+            // Broadcast live preview to peers
+            sendPreview?.({
+                tool: activeTool,
+                strokeColor: currentColor,
+                fillColor: currentFillColor,
+                strokeWidth: currentStrokeWidth,
+                startPoint,
+                endPoint: snappedPoint,
+                points: activeTool === 'draw' ? [...currentPoints, snappedPoint] : null,
+                userColor: currentColor,
+            });
             render();
         }
     };
@@ -573,6 +640,8 @@ export default function Canvas() {
         }
 
         if (isDrawing && startPoint && currentPoints.length > 0 && activeTool !== 'eraser') {
+            // Clear live preview now that we're committing the element
+            sendPreview?.(null);
             const endPoint = currentPoints[currentPoints.length - 1];
 
             switch (activeTool) {
@@ -822,7 +891,7 @@ export default function Canvas() {
 
         const zoom = viewport.zoom;
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
+        const newZoom = Math.max(0.3, Math.min(5, zoom * delta));
 
         // Zoom towards mouse position
         const scale = newZoom / zoom;
@@ -956,7 +1025,7 @@ export default function Canvas() {
             )}
 
             {/* Eraser cursor */}
-            {activeTool === 'eraser' && <EraserCursor x={mousePos.x} y={mousePos.y} />}
+            {activeTool === 'eraser' && <EraserCursor x={clientMousePos.x} y={clientMousePos.y} isErasing={isDrawing} />}
 
             {/* Render context menu if open */}
             {contextMenu && (
