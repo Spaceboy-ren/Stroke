@@ -16,13 +16,12 @@ import ShortcutsHelp from '../ShortcutsHelp';
 
 interface ToolbarProps {
     isConnected?: boolean;
-    userColor?: string;
     nickname?: string;
     onShare?: () => void;
     onNicknameChange?: (name: string) => void;
 }
 
-export default function Toolbar({ isConnected = false, userColor = '#6b7280', nickname = '', onShare, onNicknameChange }: ToolbarProps) {
+export default function Toolbar({ isConnected = false, nickname = '', onShare, onNicknameChange }: ToolbarProps) {
     const { theme, gridVisible, toggleTheme, toggleGrid, undo, redo, canUndo, canRedo } = useStore();
     const [showShortcuts, setShowShortcuts] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -93,6 +92,10 @@ export default function Toolbar({ isConnected = false, userColor = '#6b7280', ni
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-background/60 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150 cursor-pointer group"
                             title="Click to change your name"
                         >
+                            {/* Live/Offline status indicator */}
+                            <span
+                                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500 shadow-[0_0_4px_#22c55e]' : 'bg-muted-foreground/40'}`}
+                            />
                             <span className={nickname ? 'text-foreground' : 'text-muted-foreground/60 italic'}>
                                 {displayName}
                             </span>

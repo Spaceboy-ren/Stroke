@@ -27,7 +27,7 @@ export default function App() {
     );
 
     // Real-time collaboration — starts once nickname is known
-    const { isConnected, userColor, remoteCursors, shareUrl, sendPreview } = useCollaboration(nickname);
+    const { isConnected, remoteCursors, shareUrl, sendPreview } = useCollaboration(nickname);
 
     const handleNicknameChange = (newName: string) => {
         setNickname(newName);
@@ -87,7 +87,6 @@ export default function App() {
 
             <Toolbar
                 isConnected={isConnected}
-                userColor={userColor}
                 nickname={nickname}
                 onShare={shareUrl}
                 onNicknameChange={handleNicknameChange}
